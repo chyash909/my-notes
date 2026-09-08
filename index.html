@@ -41,26 +41,34 @@
   var isMe = (user === 'me');
   var scriptUrl = 'https://script.google.com/macros/s/AKfycbz9h3SIFVsrOFpFILYYj-l4_xKRk54VW42RpXDpsH--t4N-mIFT45U6E6RHzRH_l8EwRQ/exec';
 
-  // log this visit silently
-  fetch(scriptUrl + '?action=log&user=' + encodeURIComponent(user), { mode: 'no-cors' });
+  function jsonp(url, callbackName, onDone) {
+    window[callbackName] = function (data) {
+      onDone(data);
+      delete window[callbackName];
+      script.remove();
+    };
+    var script = document.createElement('script');
+    script.src = url + '&callback=' + callbackName;
+    document.body.appendChild(script);
+  }
+
+  jsonp(scriptUrl + '?action=log&user=' + encodeURIComponent(user), 'logCb', function () {});
 
   loadNotes();
 
   function loadNotes() {
-    fetch(scriptUrl + '?action=getNotes')
-      .then(function (res) { return res.json(); })
-      .then(function (data) {
-        renderNotes(data.notes);
-        var canPost = isMe || data.replyEnabled;
-        document.getElementById('addBox').style.display = canPost ? 'block' : 'none';
+    jsonp(scriptUrl + '?action=getNotes', 'notesCb', function (data) {
+      renderNotes(data.notes);
+      var canPost = isMe || data.replyEnabled;
+      document.getElementById('addBox').style.display = canPost ? 'block' : 'none';
 
-        if (isMe) {
-          document.getElementById('adminControls').innerHTML =
-            '<button class="toggle-btn" onclick="toggleReply(' + (!data.replyEnabled) + ')">' +
-            (data.replyEnabled ? 'Turn OFF friend replies' : 'Turn ON friend replies') +
-            '</button>';
-        }
-      });
+      if (isMe) {
+        document.getElementById('adminControls').innerHTML =
+          '<button class="toggle-btn" onclick="toggleReply(' + (!data.replyEnabled) + ')">' +
+          (data.replyEnabled ? 'Turn OFF friend replies' : 'Turn ON friend replies') +
+          '</button>';
+      }
+    });
   }
 
   function renderNotes(notes) {
@@ -82,22 +90,21 @@
   function saveNote() {
     var text = document.getElementById('noteInput').value;
     if (!text.trim()) return;
-    fetch(scriptUrl + '?action=addNote&user=' + encodeURIComponent(user) +
-          '&key=' + encodeURIComponent(key) + '&text=' + encodeURIComponent(text))
-      .then(function (res) { return res.text(); })
-      .then(function (result) {
-        if (result === 'unauthorized' || result === 'replies_disabled') {
-          alert('Could not post: ' + result);
-        } else {
-          document.getElementById('noteInput').value = '';
-          loadNotes();
-        }
-      });
+    var url = scriptUrl + '?action=addNote&user=' + encodeURIComponent(user) +
+              '&key=' + encodeURIComponent(key) + '&text=' + encodeURIComponent(text);
+    jsonp(url, 'addCb', function (result) {
+      if (result.status === 'unauthorized' || result.status === 'replies_disabled') {
+        alert('Could not post: ' + result.status);
+      } else {
+        document.getElementById('noteInput').value = '';
+        loadNotes();
+      }
+    });
   }
 
   function toggleReply(newValue) {
-    fetch(scriptUrl + '?action=toggleReply&key=' + encodeURIComponent(key) + '&value=' + newValue)
-      .then(function () { loadNotes(); });
+    var url = scriptUrl + '?action=toggleReply&key=' + encodeURIComponent(key) + '&value=' + newValue;
+    jsonp(url, 'toggleCb', function () { loadNotes(); });
   }
 </script>
 </body>
