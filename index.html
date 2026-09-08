@@ -2,40 +2,103 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Note</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Notes</title>
 <style>
-  body {
-    font-family: -apple-system, sans-serif;
-    background: #f5f5f5;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    height: 100vh;
-    margin: 0;
-  }
-  .card {
-    background: white;
-    padding: 40px;
-    border-radius: 12px;
-    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-    max-width: 500px;
-    text-align: center;
-  }
+  body { font-family: -apple-system, sans-serif; background: #f5f5f5; margin: 0; padding: 20px; }
+  .container { max-width: 500px; margin: 0 auto; }
+  .card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); margin-bottom: 12px; }
+  .note-item { text-align: left; }
+  .note-time { font-size: 12px; color: #888; }
+  .note-text { margin: 4px 0 0; white-space: pre-wrap; }
+  textarea { width: 100%; font-size: 16px; padding: 8px; margin-top: 10px; box-sizing: border-box; }
+  button { margin-top: 10px; padding: 10px 20px; font-size: 15px; border: none; border-radius: 8px; background: #333; color: white; cursor: pointer; }
+  .toggle-btn { background: #999; margin-left: 8px; }
+  h2 { margin-top: 0; }
 </style>
 </head>
 <body>
-  <div class="card">
-    <h2>Today's Note</h2>
-    <p id="note">Hey! This is today's update.</p>
+<div class="container">
+
+  <div class="card" id="addBox" style="display:none;">
+    <h2>Add a note</h2>
+    <textarea id="noteInput" rows="3" placeholder="Write your update..."></textarea><br>
+    <button onclick="saveNote()">Post</button>
+    <span id="adminControls"></span>
   </div>
 
-  <img src="" id="tracker" style="display:none;" />
+  <div class="card">
+    <h2>Notes</h2>
+    <div id="notesList">Loading...</div>
+  </div>
 
-  <script>
-    var params = new URLSearchParams(window.location.search);
-    var user = params.get('user') || 'unknown';
-    var scriptUrl = 'https://script.googleusercontent.com/macros/echo?user_content_key=AUkAhnTStb9ZVA0ASqSIinAYSBgb-EGzOFehCXdKHAonzK-0YEJNMGwNn9CFgXwP0mHMqHlKqgk79HM206n8Wfrl23wDRIorFC2DDMSrLJU7Lr-k7AG_lMQPMY1e9FsGNyXqkNh6y1z3SNG0Olshx5ETXOOeZQA_-QTqHmmQFkjdykDiIXNZXAMK6_gLgWCPGTsE5PHsVAPHPYRWE9V8gtq9feV4oqZuRAKJjIts74Zqe6kLIR5BFwvdDNReVSsPctVblSmxAk5ONzT_ufcEXoYq0xPeRK0eDw&lib=MNFuFfESvqruMddnbK1uU_dCzlGkGdv3U';
-    document.getElementById('tracker').src = scriptUrl + '?user=' + encodeURIComponent(user);
-  </script>
+</div>
+
+<script>
+  var params = new URLSearchParams(window.location.search);
+  var user = params.get('user') || 'unknown';
+  var key = params.get('key') || '';
+  var isMe = (user === 'me');
+  var scriptUrl = 'https://script.google.com/macros/s/AKfycbz9h3SIFVsrOFpFILYYj-l4_xKRk54VW42RpXDpsH--t4N-mIFT45U6E6RHzRH_l8EwRQ/exec';
+
+  // log this visit silently
+  fetch(scriptUrl + '?action=log&user=' + encodeURIComponent(user), { mode: 'no-cors' });
+
+  loadNotes();
+
+  function loadNotes() {
+    fetch(scriptUrl + '?action=getNotes')
+      .then(function (res) { return res.json(); })
+      .then(function (data) {
+        renderNotes(data.notes);
+        var canPost = isMe || data.replyEnabled;
+        document.getElementById('addBox').style.display = canPost ? 'block' : 'none';
+
+        if (isMe) {
+          document.getElementById('adminControls').innerHTML =
+            '<button class="toggle-btn" onclick="toggleReply(' + (!data.replyEnabled) + ')">' +
+            (data.replyEnabled ? 'Turn OFF friend replies' : 'Turn ON friend replies') +
+            '</button>';
+        }
+      });
+  }
+
+  function renderNotes(notes) {
+    var html = '';
+    notes.forEach(function (n) {
+      var t = new Date(n.timestamp).toLocaleString();
+      html += '<div class="note-item"><div class="note-time">' + n.author + ' · ' + t + '</div>' +
+              '<p class="note-text">' + escapeHtml(n.text) + '</p></div><hr>';
+    });
+    document.getElementById('notesList').innerHTML = html || '<p>No notes yet.</p>';
+  }
+
+  function escapeHtml(str) {
+    var div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+  }
+
+  function saveNote() {
+    var text = document.getElementById('noteInput').value;
+    if (!text.trim()) return;
+    fetch(scriptUrl + '?action=addNote&user=' + encodeURIComponent(user) +
+          '&key=' + encodeURIComponent(key) + '&text=' + encodeURIComponent(text))
+      .then(function (res) { return res.text(); })
+      .then(function (result) {
+        if (result === 'unauthorized' || result === 'replies_disabled') {
+          alert('Could not post: ' + result);
+        } else {
+          document.getElementById('noteInput').value = '';
+          loadNotes();
+        }
+      });
+  }
+
+  function toggleReply(newValue) {
+    fetch(scriptUrl + '?action=toggleReply&key=' + encodeURIComponent(key) + '&value=' + newValue)
+      .then(function () { loadNotes(); });
+  }
+</script>
 </body>
 </html>
