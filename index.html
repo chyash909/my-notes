@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Note</title>
+<style>
+  body {
+    font-family: -apple-system, sans-serif;
+    background: #f5f5f5;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    margin: 0;
+  }
+  .card {
+    background: white;
+    padding: 40px;
+    border-radius: 12px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    max-width: 500px;
+    text-align: center;
+  }
+</style>
+</head>
+<body>
+  <div class="card">
+    <h2>Today's Note</h2>
+    <p id="note">Hey! This is today's update.</p>
+  </div>
+
+  <img src="" id="tracker" style="display:none;" />
+
+  <script>
+    var params = new URLSearchParams(window.location.search);
+    var user = params.get('user') || 'unknown';
+    var scriptUrl = 'https://script.googleusercontent.com/macros/echo?user_content_key=AUkAhnTStb9ZVA0ASqSIinAYSBgb-EGzOFehCXdKHAonzK-0YEJNMGwNn9CFgXwP0mHMqHlKqgk79HM206n8Wfrl23wDRIorFC2DDMSrLJU7Lr-k7AG_lMQPMY1e9FsGNyXqkNh6y1z3SNG0Olshx5ETXOOeZQA_-QTqHmmQFkjdykDiIXNZXAMK6_gLgWCPGTsE5PHsVAPHPYRWE9V8gtq9feV4oqZuRAKJjIts74Zqe6kLIR5BFwvdDNReVSsPctVblSmxAk5ONzT_ufcEXoYq0xPeRK0eDw&lib=MNFuFfESvqruMddnbK1uU_dCzlGkGdv3U';
+    document.getElementById('tracker').src = scriptUrl + '?user=' + encodeURIComponent(user);
+  </script>
+</body>
+</html>
